@@ -71,11 +71,13 @@ Check "deployment/render.yaml exists"  (Test-Path "$ROOT\deployment\render.yaml"
 # ── Security scan ─────────────────────────────────────────────────────────
 Info "Scanning for insecure patterns..."
 
-$adminAdmin = Select-String -Path "$ROOT\backend\prisma\seed.ts" -Pattern "password.*admin|admin.*admin" -Quiet 2>$null
+# Check for literal 'admin' as a password value (not comments or variable names)
+$adminAdmin = Select-String -Path "$ROOT\backend\prisma\seed.ts" -Pattern "[`"']admin[`"'].*password|password.*[`"']admin[`"']" -Quiet 2>$null
 Check "No admin/admin in seed.ts" (-not $adminAdmin) "Remove hardcoded admin credentials from seed.ts"
 
-$hardcodedPw = Select-String -Recurse -Path "$ROOT\backend\src" -Pattern "password.*=.*[`"']admin[`"']" -Quiet 2>$null
-Check "No hardcoded passwords in backend src" (-not $hardcodedPw)
+$srcFiles = Get-ChildItem -Path "$ROOT\backend\src" -Recurse -Filter "*.ts" -File 2>$null
+$hardcodedPwMatches = ($srcFiles | Select-String -Pattern "password.*['`"]admin['`"]|['`"]admin['`"].*password" 2>$null | Measure-Object).Count
+Check "No hardcoded passwords in backend src" ($hardcodedPwMatches -eq 0)
 
 # ── Build checks ───────────────────────────────────────────────────────────
 Info "Running builds (this may take a minute)..."
