@@ -15,3 +15,9 @@ uploads/
 *.key
 *.cert
 .vercel
+deployment/_jwt_*.tmp
+backend-check.txt
+backend-log.txt
+frontend-log.txt
+frontend-log2.txt
+vite-run.txt

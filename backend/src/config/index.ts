@@ -16,7 +16,7 @@ export const config = {
   env: optional('NODE_ENV', 'development'),
   isDev: optional('NODE_ENV', 'development') === 'development',
   port: parseInt(optional('PORT', '4000'), 10),
-  appUrl: optional('APP_URL', 'http://localhost:4000'),
+  appUrl: process.env['BACKEND_URL'] ?? optional('APP_URL', 'http://localhost:4000'),
   frontendUrl: optional('FRONTEND_URL', 'http://localhost:5173'),
 
   db: {

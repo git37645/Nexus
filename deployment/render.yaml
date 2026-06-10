@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: nexus-backend
+    name: alexandria-backend
     runtime: node
     rootDir: backend
     buildCommand: npm install && npx prisma generate && npm run build
@@ -21,10 +21,10 @@ services:
         value: 30d
       - key: FRONTEND_URL
         sync: false
-      - key: APP_URL
+      - key: BACKEND_URL
         sync: false
       - key: SMTP_HOST
-        sync: false
+        value: smtp-relay.brevo.com
       - key: SMTP_PORT
         value: "587"
       - key: SMTP_SECURE
@@ -36,7 +36,7 @@ services:
       - key: EMAIL_FROM
         sync: false
       - key: EMAIL_FROM_NAME
-        value: Nexus University Platform
+        value: Alexandria University Platform
       - key: STORAGE_PATH
         value: ./storage
       - key: MAX_FILE_SIZE_MB
@@ -50,7 +50,7 @@ services:
       - key: RATE_LIMIT_MAX_REQUESTS
         value: "100"
       - key: TOTP_ISSUER
-        value: Nexus University
+        value: Alexandria University
       - key: ADMIN_EMAIL
         value: ivanknyaze@gmail.com
       - key: ADMIN_USERNAME
