@@ -16,6 +16,8 @@ uploads/
 *.cert
 .vercel
 deployment/_jwt_*.tmp
+deployment/*.tmp
+.claude/
 backend-check.txt
 backend-log.txt
 frontend-log.txt
