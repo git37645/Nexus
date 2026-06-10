@@ -1,0 +1,644 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+  SUPERADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  FROZEN
+  BLOCKED
+  PENDING_VERIFICATION
+}
+
+enum ChatType {
+  PRIVATE
+  GROUP
+}
+
+enum ChatMemberRole {
+  OWNER
+  MODERATOR
+  MEMBER
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum PostVisibility {
+  UNIVERSITY
+  GROUP
+  COURSE
+  FOLLOWERS
+}
+
+enum AssignmentStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  GRADED
+  RETURNED
+  LATE
+}
+
+enum ReportStatus {
+  PENDING
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportType {
+  HARASSMENT
+  SPAM
+  ILLEGAL_CONTENT
+  THREATS
+  ACADEMIC_CHEATING
+  HATE_SPEECH
+  INAPPROPRIATE_CONTENT
+  OTHER
+}
+
+enum ContentType {
+  POST
+  COMMENT
+  MESSAGE
+  PROFILE
+  FILE
+}
+
+enum NotificationType {
+  MESSAGE
+  COMMENT
+  LIKE
+  ASSIGNMENT
+  DEADLINE
+  GRADE
+  LECTURE
+  ANNOUNCEMENT
+  REPORT_REVIEWED
+  SYSTEM
+}
+
+model User {
+  id                    String        @id @default(cuid())
+  email                 String        @unique
+  username              String?       @unique
+  passwordHash          String
+  role                  Role          @default(STUDENT)
+  status                AccountStatus @default(PENDING_VERIFICATION)
+  emailVerified         Boolean       @default(false)
+  emailVerifyToken      String?
+  emailVerifyExpiry     DateTime?
+  passwordResetToken    String?
+  passwordResetExpiry   DateTime?
+  setupToken            String?       @unique
+  setupTokenExpiry      DateTime?
+  isSetupComplete       Boolean       @default(true)
+  failedLoginAttempts   Int           @default(0)
+  lockedUntil           DateTime?
+  lastActiveAt          DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  profile               Profile?
+  sessions              Session[]
+  refreshTokens         RefreshToken[]
+  twoFactorSecret       TwoFactorSecret?
+  privacySettings       PrivacySettings?
+  storageFolder         UserStorageFolder?
+
+  posts                 Post[]
+  comments              Comment[]
+  likes                 Like[]
+  savedPosts            SavedPost[]
+
+  chatMemberships       ChatMember[]
+  sentMessages          Message[]
+  messageReactions      MessageReaction[]
+
+  coursesAsTeacher      Course[]              @relation("CourseTeacher")
+  coursesMember         CourseMember[]
+
+  assignmentSubmissions AssignmentSubmission[]
+  gradesReceived        Grade[]               @relation("StudentGrades")
+  gradesGiven           Grade[]               @relation("GradedBy")
+
+  notifications         Notification[]
+
+  reportsSubmitted      Report[]              @relation("ReportSubmitter")
+  reportsReceived       Report[]              @relation("ReportTarget")
+  reportsReviewed       Report[]              @relation("ReportReviewer")
+
+  adminActionsPerformed AdminActionLog[]      @relation("AdminActor")
+  adminActionsReceived  AdminActionLog[]      @relation("AdminTarget")
+  auditLogs             AuditLog[]
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  firstName   String
+  lastName    String
+  avatarUrl   String?
+  bio         String?
+  faculty     String?
+  department  String?
+  group       String?
+  studentId   String?
+  phoneNumber String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  deviceInfo  String?
+  ipAddress   String?
+  userAgent   String?
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  lastUsedAt  DateTime @default(now())
+  expiresAt   DateTime
+}
+
+model RefreshToken {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId   String?
+
+  tokenHash   String   @unique
+  family      String
+  isRevoked   Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+}
+
+model TwoFactorSecret {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  secret      String
+  isEnabled   Boolean  @default(false)
+  backupCodes String[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PrivacySettings {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  profileVisibility   String   @default("UNIVERSITY")
+  postVisibility      String   @default("UNIVERSITY")
+  messagePermission   String   @default("UNIVERSITY")
+  groupAddPermission  String   @default("UNIVERSITY")
+  showOnlineStatus    Boolean  @default(true)
+  showReadReceipts    Boolean  @default(true)
+
+  updatedAt           DateTime @updatedAt
+}
+
+model UserStorageFolder {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  path      String   @unique
+  sizeBytes BigInt   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id          String         @id @default(cuid())
+  authorId    String
+  author      User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  content     String
+  visibility  PostVisibility @default(UNIVERSITY)
+  courseId    String?
+  course      Course?        @relation(fields: [courseId], references: [id])
+
+  isEdited    Boolean        @default(false)
+  isPinned    Boolean        @default(false)
+  isRemoved   Boolean        @default(false)
+  removedById String?
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  images      PostImage[]
+  comments    Comment[]
+  likes       Like[]
+  savedBy     SavedPost[]
+  reports     Report[]       @relation("PostReports")
+}
+
+model PostImage {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  url       String
+  fileName  String
+  fileSize  Int
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+
+  content   String
+  isEdited  Boolean   @default(false)
+  isRemoved Boolean   @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  reports   Report[]  @relation("CommentReports")
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model SavedPost {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model Chat {
+  id          String       @id @default(cuid())
+  type        ChatType
+  name        String?
+  avatarUrl   String?
+  description String?
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  members         ChatMember[]
+  messages        Message[]
+  pinnedMessages  PinnedMessage[]
+}
+
+model ChatMember {
+  id        String         @id @default(cuid())
+  chatId    String
+  chat      Chat           @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role      ChatMemberRole @default(MEMBER)
+  joinedAt  DateTime       @default(now())
+  lastReadAt DateTime?
+  isMuted   Boolean        @default(false)
+
+  @@unique([chatId, userId])
+}
+
+model Message {
+  id          String            @id @default(cuid())
+  chatId      String
+  chat        Chat              @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  content     String?
+  replyToId   String?
+  replyTo     Message?          @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies     Message[]         @relation("MessageReplies")
+
+  status      MessageStatus     @default(SENT)
+  isEdited    Boolean           @default(false)
+  isDeleted   Boolean           @default(false)
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  attachments MessageAttachment[]
+  reactions   MessageReaction[]
+  pinnedIn    PinnedMessage[]
+  reports     Report[]          @relation("MessageReports")
+}
+
+model MessageAttachment {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  url       String
+  fileName  String
+  fileSize  Int
+  mimeType  String
+
+  createdAt DateTime @default(now())
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emoji     String
+
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
+}
+
+model PinnedMessage {
+  id        String   @id @default(cuid())
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  pinnedAt  DateTime @default(now())
+
+  @@unique([chatId, messageId])
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  teacherId   String
+  teacher     User     @relation("CourseTeacher", fields: [teacherId], references: [id])
+
+  name        String
+  code        String   @unique
+  description String?
+  semester    String?
+  year        Int?
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     CourseMember[]
+  lectures    Lecture[]
+  assignments Assignment[]
+  posts       Post[]
+  files       FileObject[]   @relation("CourseFiles")
+}
+
+model CourseMember {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  joinedAt  DateTime @default(now())
+
+  @@unique([courseId, userId])
+}
+
+model Lecture {
+  id            String   @id @default(cuid())
+  courseId      String
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  title         String
+  description   String?
+  content       String?
+  order         Int      @default(0)
+  allowComments Boolean  @default(false)
+  isPublished   Boolean  @default(false)
+
+  publishedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  attachments   LectureAttachment[]
+}
+
+model LectureAttachment {
+  id          String   @id @default(cuid())
+  lectureId   String
+  lecture     Lecture  @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+  url         String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  attachType  String
+
+  createdAt   DateTime @default(now())
+}
+
+model Assignment {
+  id               String   @id @default(cuid())
+  courseId         String
+  course           Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  title            String
+  description      String?
+  instructions     String?
+  deadline         DateTime
+  maxScore         Float    @default(100)
+  allowedFileTypes String[]
+  maxFileSizeMb    Int      @default(10)
+  allowResubmit    Boolean  @default(false)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  attachments      FileObject[]          @relation("AssignmentFiles")
+  submissions      AssignmentSubmission[]
+}
+
+model AssignmentSubmission {
+  id           String           @id @default(cuid())
+  assignmentId String
+  assignment   Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  content      String?
+  status       AssignmentStatus @default(NOT_SUBMITTED)
+  submittedAt  DateTime?
+  version      Int              @default(1)
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  files        SubmissionFile[]
+  grade        Grade?
+
+  @@unique([assignmentId, studentId])
+}
+
+model SubmissionFile {
+  id           String               @id @default(cuid())
+  submissionId String
+  submission   AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  url          String
+  fileName     String
+  fileSize     Int
+  mimeType     String
+  version      Int                  @default(1)
+
+  uploadedAt   DateTime             @default(now())
+}
+
+model Grade {
+  id           String               @id @default(cuid())
+  submissionId String               @unique
+  submission   AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User                 @relation("StudentGrades", fields: [studentId], references: [id])
+  gradedById   String
+  gradedBy     User                 @relation("GradedBy", fields: [gradedById], references: [id])
+
+  score        Float
+  feedback     String?
+
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      NotificationType
+  title     String
+  body      String
+  link      String?
+  isRead    Boolean          @default(false)
+
+  createdAt DateTime         @default(now())
+}
+
+model Report {
+  id           String      @id @default(cuid())
+  reporterId   String
+  reporter     User        @relation("ReportSubmitter", fields: [reporterId], references: [id])
+  targetUserId String?
+  targetUser   User?       @relation("ReportTarget", fields: [targetUserId], references: [id])
+
+  contentType  ContentType
+  contentId    String
+
+  postId       String?
+  post         Post?       @relation("PostReports", fields: [postId], references: [id])
+  commentId    String?
+  comment      Comment?    @relation("CommentReports", fields: [commentId], references: [id])
+  messageId    String?
+  message      Message?    @relation("MessageReports", fields: [messageId], references: [id])
+
+  reportType   ReportType
+  description  String?
+
+  status       ReportStatus @default(PENDING)
+  reviewedById String?
+  reviewedBy   User?        @relation("ReportReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  actionTaken  String?
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model AdminActionLog {
+  id           String   @id @default(cuid())
+  adminId      String
+  admin        User     @relation("AdminActor", fields: [adminId], references: [id])
+  targetUserId String?
+  targetUser   User?    @relation("AdminTarget", fields: [targetUserId], references: [id])
+
+  action       String
+  details      Json?
+  ipAddress    String?
+
+  createdAt    DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  action     String
+  resource   String
+  resourceId String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt  DateTime @default(now())
+}
+
+model FileObject {
+  id           String      @id @default(cuid())
+  uploadedById String
+
+  url          String
+  fileName     String
+  originalName String
+  fileSize     Int
+  mimeType     String
+
+  courseId     String?
+  course       Course?     @relation("CourseFiles", fields: [courseId], references: [id])
+  assignmentId String?
+  assignment   Assignment? @relation("AssignmentFiles", fields: [assignmentId], references: [id])
+
+  isPublic     Boolean     @default(false)
+
+  createdAt    DateTime    @default(now())
+}
