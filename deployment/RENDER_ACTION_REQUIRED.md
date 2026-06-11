@@ -4,6 +4,8 @@ Render hosts your Express API server. It connects to your Neon database and serv
 
 **Before starting:** complete `NEON_ACTION_REQUIRED.md` and have your DATABASE_URL ready.
 
+> **Already deployed but crashing?** See `FIX_DATABASE_URL_RENDER.md` for the quick fix.
+
 ---
 
 ## Step 1 — Create a Render account

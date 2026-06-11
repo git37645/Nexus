@@ -4,7 +4,21 @@ dotenv.config()
 
 function required(key: string): string {
   const value = process.env[key]
-  if (!value) throw new Error(`Missing required environment variable: ${key}`)
+  if (!value) {
+    const hints: Record<string, string> = {
+      DATABASE_URL:
+        'Create a free PostgreSQL database at https://neon.tech, copy the connection string, ' +
+        'then add it in Render → your service → Environment → DATABASE_URL.',
+      JWT_ACCESS_SECRET:
+        'Generate with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))" ' +
+        'then add in Render → Environment → JWT_ACCESS_SECRET.',
+      JWT_REFRESH_SECRET:
+        'Generate with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))" ' +
+        'then add in Render → Environment → JWT_REFRESH_SECRET.',
+    }
+    const hint = hints[key] ? `\n  Hint: ${hints[key]}` : ''
+    throw new Error(`Missing required environment variable: ${key}${hint}`)
+  }
   return value
 }
 
