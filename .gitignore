@@ -9,7 +9,8 @@ build/
 Thumbs.db
 coverage/
 .nyc_output/
-storage/
+/storage/
+/backend/storage/
 uploads/
 *.pem
 *.key
